@@ -1,7 +1,21 @@
 import { useWallets } from '@privy-io/react-auth'
 import { ethers } from 'ethers'
-import { CONTRACTS } from '@/config/contracts'
+import { CONTRACTS, CHAIN_ID, TOKEN_ADDRESSES } from '@/config/contracts'
 import { toast } from 'sonner'
+
+const PANCAKE_ROUTER_ABI = [
+  "function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) external payable returns (uint[] memory amounts)",
+  "function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
+  "function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
+  "function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts)",
+  "function WETH() external pure returns (address)",
+]
+
+const ERC20_APPROVE_ABI = [
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+  "function decimals() external view returns (uint8)",
+]
 
 const CHAINMATE_CORE_ABI = [
   "function createScheduledPayment(address to, address token, uint256 amount, uint256 executeAt, string memory memo) external returns (uint256)",
@@ -30,17 +44,24 @@ const CHAINMATE_TOKEN_ABI = [
 
 export function useChainMateContract() {
   const { wallets } = useWallets()
-  const wallet = wallets[0]
+  // Prefer external wallet (MetaMask, etc.) over Privy's embedded wallet
+  const wallet = wallets.find(w => w.walletClientType !== 'privy') || wallets[0]
 
   const getProvider = async () => {
     if (!wallet) throw new Error('Wallet not connected')
-    const provider = await wallet.getEthersProvider()
-    return provider
+    await wallet.switchChain(CHAIN_ID)
+    const ethereumProvider = await wallet.getEthereumProvider()
+    return new ethers.BrowserProvider(ethereumProvider)
   }
 
   const getSigner = async () => {
     const provider = await getProvider()
     return provider.getSigner()
+  }
+
+  const getWalletAddress = async () => {
+    const signer = await getSigner()
+    return signer.getAddress()
   }
 
   const getCoreContract = async () => {
@@ -118,7 +139,7 @@ export function useChainMateContract() {
       const receipt = await tx.wait()
       toast.success('Payment scheduled successfully!')
 
-      return receipt.hash
+      return receipt.hash || tx.hash
     } catch (error: any) {
       console.error('Schedule payment error:', error)
       toast.error(error.message || 'Failed to schedule payment')
@@ -177,6 +198,40 @@ export function useChainMateContract() {
     }
   }
 
+  const verifyContact = async (contactId: number) => {
+    try {
+      const contract = await getCoreContract()
+      const tx = await contract.verifyContact(contactId)
+
+      toast.success('Verifying contact...')
+      await tx.wait()
+      toast.success('Contact verified onchain!')
+
+      return tx.hash
+    } catch (error: any) {
+      console.error('Verify contact error:', error)
+      toast.error(error.message || 'Failed to verify contact')
+      throw error
+    }
+  }
+
+  const createTeam = async (name: string, members: string[], requiredApprovals: number) => {
+    try {
+      const contract = await getCoreContract()
+      const tx = await contract.createTeam(name, members, requiredApprovals)
+
+      toast.success('Creating team...')
+      await tx.wait()
+      toast.success(`Team "${name}" created successfully!`)
+
+      return tx.hash
+    } catch (error: any) {
+      console.error('Create team error:', error)
+      toast.error(error.message || 'Failed to create team')
+      throw error
+    }
+  }
+
   const getBalance = async (address: string) => {
     try {
       const provider = await getProvider()
@@ -223,6 +278,112 @@ export function useChainMateContract() {
     }
   }
 
+  // ---- SWAP FUNCTIONS (PancakeSwap V2) ----
+
+  const getSwapQuote = async (fromToken: string, toToken: string, amount: string) => {
+    try {
+      const provider = await getProvider()
+      const router = new ethers.Contract(CONTRACTS.PANCAKE_ROUTER, PANCAKE_ROUTER_ABI, provider)
+
+      const fromAddr = TOKEN_ADDRESSES[fromToken.toUpperCase()] || fromToken
+      const toAddr = TOKEN_ADDRESSES[toToken.toUpperCase()] || toToken
+      const isFromBNB = fromToken.toUpperCase() === 'BNB'
+      const amountIn = ethers.parseEther(amount)
+
+      const path = [fromAddr, toAddr]
+      // If neither is WBNB, route through WBNB
+      if (fromAddr.toLowerCase() !== CONTRACTS.WBNB.toLowerCase() &&
+          toAddr.toLowerCase() !== CONTRACTS.WBNB.toLowerCase()) {
+        path.splice(1, 0, CONTRACTS.WBNB)
+      }
+
+      const amounts = await router.getAmountsOut(amountIn, path)
+      const amountOut = ethers.formatEther(amounts[amounts.length - 1])
+      return { amountOut, path }
+    } catch (error: any) {
+      console.error('Swap quote error:', error)
+      throw new Error('Could not get swap quote. Liquidity may be unavailable for this pair.')
+    }
+  }
+
+  const swapTokens = async (fromToken: string, toToken: string, amount: string, minAmountOut: string) => {
+    try {
+      const signer = await getSigner()
+      const address = await signer.getAddress()
+      const router = new ethers.Contract(CONTRACTS.PANCAKE_ROUTER, PANCAKE_ROUTER_ABI, signer)
+
+      const fromAddr = TOKEN_ADDRESSES[fromToken.toUpperCase()] || fromToken
+      const toAddr = TOKEN_ADDRESSES[toToken.toUpperCase()] || toToken
+      const isFromBNB = fromToken.toUpperCase() === 'BNB'
+      const isToBNB = toToken.toUpperCase() === 'BNB'
+      const amountIn = ethers.parseEther(amount)
+      const amountOutMin = ethers.parseEther(minAmountOut)
+      const deadline = Math.floor(Date.now() / 1000) + 60 * 20 // 20 minutes
+
+      // Build path
+      const path = [fromAddr, toAddr]
+      if (fromAddr.toLowerCase() !== CONTRACTS.WBNB.toLowerCase() &&
+          toAddr.toLowerCase() !== CONTRACTS.WBNB.toLowerCase()) {
+        path.splice(1, 0, CONTRACTS.WBNB)
+      }
+
+      let tx
+
+      if (isFromBNB) {
+        // BNB -> Token
+        tx = await router.swapExactETHForTokens(
+          amountOutMin,
+          path,
+          address,
+          deadline,
+          { value: amountIn }
+        )
+      } else if (isToBNB) {
+        // Token -> BNB: need approval first
+        const tokenContract = new ethers.Contract(fromAddr, ERC20_APPROVE_ABI, signer)
+        const allowance = await tokenContract.allowance(address, CONTRACTS.PANCAKE_ROUTER)
+        if (allowance < amountIn) {
+          toast.success('Approving token for swap...')
+          const approveTx = await tokenContract.approve(CONTRACTS.PANCAKE_ROUTER, ethers.MaxUint256)
+          await approveTx.wait()
+        }
+        tx = await router.swapExactTokensForETH(
+          amountIn,
+          amountOutMin,
+          path,
+          address,
+          deadline
+        )
+      } else {
+        // Token -> Token: need approval first
+        const tokenContract = new ethers.Contract(fromAddr, ERC20_APPROVE_ABI, signer)
+        const allowance = await tokenContract.allowance(address, CONTRACTS.PANCAKE_ROUTER)
+        if (allowance < amountIn) {
+          toast.success('Approving token for swap...')
+          const approveTx = await tokenContract.approve(CONTRACTS.PANCAKE_ROUTER, ethers.MaxUint256)
+          await approveTx.wait()
+        }
+        tx = await router.swapExactTokensForTokens(
+          amountIn,
+          amountOutMin,
+          path,
+          address,
+          deadline
+        )
+      }
+
+      toast.success('Swap submitted!')
+      await tx.wait()
+      toast.success('Swap confirmed!')
+
+      return tx.hash
+    } catch (error: any) {
+      console.error('Swap error:', error)
+      toast.error(error.message || 'Swap failed')
+      throw error
+    }
+  }
+
   const getAddressReputation = async (address: string) => {
     try {
       const contract = await getCoreContract()
@@ -230,23 +391,28 @@ export function useChainMateContract() {
       return {
         transactionCount: Number(txCount),
         isFlagged,
-        riskLevel: isFlagged ? 'high' : txCount > 100 ? 'low' : 'medium'
+        riskLevel: isFlagged ? 'high' : Number(txCount) > 100 ? 'low' : Number(txCount) > 10 ? 'medium' : 'unknown'
       }
     } catch (error) {
       console.error('Get reputation error:', error)
-      return { transactionCount: 0, isFlagged: false, riskLevel: 'unknown' }
+      return { transactionCount: 0, isFlagged: false, riskLevel: 'unknown' as string }
     }
   }
 
   return {
+    getWalletAddress,
     sendTransaction,
     sendToken,
     schedulePayment,
     createConditionalPayment,
     addContact,
+    verifyContact,
+    createTeam,
     getBalance,
     getTokenBalance,
     claimFromFaucet,
     getAddressReputation,
+    getSwapQuote,
+    swapTokens,
   }
 }

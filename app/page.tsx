@@ -1,15 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { MessageSquare, BarChart3, Users, Home, Menu, X } from 'lucide-react'
+import { MessageSquare, BarChart3, Users, Home, Menu, X, Brain } from 'lucide-react'
 import { ChatInterface } from '@/components/ChatInterface'
 import { AnalyticsDashboard } from '@/components/AnalyticsDashboard'
 import { ContactsManager } from '@/components/ContactsManager'
+import { AIAnalyzer } from '@/components/AIAnalyzer'
 import { WalletButton } from '@/components/WalletButton'
 import { usePrivy } from '@privy-io/react-auth'
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<'chat' | 'analytics' | 'contacts' | 'home'>('home')
+  const [activeTab, setActiveTab] = useState<'chat' | 'analytics' | 'contacts' | 'home' | 'analyzer'>('home')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { authenticated } = usePrivy()
 
@@ -18,6 +19,7 @@ export default function HomePage() {
     { id: 'chat' as const, label: 'AI Chat', icon: MessageSquare },
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
     { id: 'contacts' as const, label: 'Contacts', icon: Users },
+    { id: 'analyzer' as const, label: 'AI Analyzer', icon: Brain },
   ]
 
   return (
@@ -119,7 +121,7 @@ export default function HomePage() {
                     <WalletButton />
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <button
                       onClick={() => setActiveTab('chat')}
                       className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl p-6 transition-colors text-left"
@@ -146,6 +148,15 @@ export default function HomePage() {
                       <h3 className="text-white font-semibold mb-2">Contacts</h3>
                       <p className="text-gray-400 text-sm">Manage frequent recipients</p>
                     </button>
+
+                    <button
+                      onClick={() => setActiveTab('analyzer')}
+                      className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl p-6 transition-colors text-left"
+                    >
+                      <Brain className="w-8 h-8 text-purple-500 mb-3" />
+                      <h3 className="text-white font-semibold mb-2">AI Analyzer</h3>
+                      <p className="text-gray-400 text-sm">Analyze any wallet with AI</p>
+                    </button>
                   </div>
                 )}
               </div>
@@ -155,6 +166,7 @@ export default function HomePage() {
           {activeTab === 'chat' && <ChatInterface />}
           {activeTab === 'analytics' && <AnalyticsDashboard />}
           {activeTab === 'contacts' && <ContactsManager />}
+          {activeTab === 'analyzer' && <AIAnalyzer />}
         </main>
       </div>
     </div>

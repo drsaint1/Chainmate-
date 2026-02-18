@@ -20,7 +20,9 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
           accentColor: '#10b981',
         },
         embeddedWallets: {
-          createOnLogin: 'users-without-wallets',
+          ethereum: {
+            createOnLogin: 'users-without-wallets',
+          },
         },
         defaultChain: bscTestnet,
         supportedChains: [bscTestnet, bscMainnet],
