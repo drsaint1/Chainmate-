@@ -131,6 +131,14 @@ Try these commands:
 
 ## 📋 Smart Contracts
 
+| Contract | Address | Network |
+|----------|---------|---------|
+| ChainMateCore | `0x962A00d762692F8692B90914577d5191e79a514b` | BSC Testnet (97) |
+| ChainMateToken (CMT) | `0xFc4EDCF2CA8068b2A750Ad4507297aba0807CdC5` | BSC Testnet (97) |
+| PancakeSwap V2 Router | `0xD99D1c33F9fC3444f8101754aBC46c52416550D1` | BSC Testnet (97) |
+
+All transactions produce verifiable tx hashes on [BscScan Testnet](https://testnet.bscscan.com).
+
 ### ChainMateCore
 Main contract handling:
 - Scheduled payments with time-locks
@@ -139,12 +147,8 @@ Main contract handling:
 - Team multi-sig transactions
 - Transaction tracking
 
-**Deployed on BSC Testnet**: `[Will be updated after deployment]`
-
 ### ChainMateToken (CMT)
 ERC20 test token with faucet functionality
-
-**Deployed on BSC Testnet**: `[Will be updated after deployment]`
 
 ---
 
@@ -194,6 +198,12 @@ vercel --prod
 - Cross-chain support
 - DeFi integration
 - Advanced AI features
+
+---
+
+## 📖 Documentation
+
+For full technical documentation including all smart contract functions, AI intent extraction details, project structure, and feature breakdowns, see [DOCUMENTATION.md](./DOCUMENTATION.md).
 
 ---
 
