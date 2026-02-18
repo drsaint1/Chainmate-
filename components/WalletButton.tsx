@@ -2,8 +2,9 @@
 
 import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { Wallet, LogOut, Copy, Check } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { shortenAddress } from '@/lib/utils'
+import { CHAIN_ID } from '@/config/contracts'
 
 export function WalletButton() {
   const { ready, authenticated, login, logout, user } = usePrivy()
@@ -11,8 +12,17 @@ export function WalletButton() {
   const [copied, setCopied] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
 
-  const wallet = wallets[0]
+  const wallet = wallets.find(w => w.walletClientType !== 'privy') || wallets[0]
   const address = wallet?.address
+
+  // Auto-switch to BSC Testnet when wallet connects
+  useEffect(() => {
+    if (wallet && authenticated) {
+      wallet.switchChain(CHAIN_ID).catch(() => {
+        // User may reject — that's fine, badge will show wrong network
+      })
+    }
+  }, [wallet, authenticated])
 
   const copyAddress = async () => {
     if (!address) return

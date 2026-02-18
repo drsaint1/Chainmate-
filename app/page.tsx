@@ -7,6 +7,7 @@ import { AnalyticsDashboard } from '@/components/AnalyticsDashboard'
 import { ContactsManager } from '@/components/ContactsManager'
 import { AIAnalyzer } from '@/components/AIAnalyzer'
 import { WalletButton } from '@/components/WalletButton'
+import { NetworkBadge } from '@/components/NetworkBadge'
 import { usePrivy } from '@privy-io/react-auth'
 
 export default function HomePage() {
@@ -47,10 +48,7 @@ export default function HomePage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                <span className="text-xs text-gray-400">BSC Testnet</span>
-              </div>
+              <NetworkBadge />
               <WalletButton />
             </div>
           </div>
