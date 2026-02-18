@@ -8,7 +8,7 @@ import { aiService } from '@/lib/aiService'
 import { Message, TransactionIntent } from '@/types'
 import { cn } from '@/lib/utils'
 import { useChainMateContract } from '@/hooks/useChainMateContract'
-import { CONTRACTS } from '@/config/contracts'
+import { CONTRACTS, TOKEN_ADDRESSES } from '@/config/contracts'
 import { storage } from '@/lib/storage'
 import { ethers } from 'ethers'
 
@@ -125,7 +125,7 @@ export function ChatInterface() {
           if (intent.token === 'BNB' || !intent.token) {
             txHash = await sendTransaction(intent.recipient!, intent.amount!)
           } else {
-            const tokenAddress = intent.token === 'CMT' ? CONTRACTS.CHAINMATE_TOKEN : intent.recipient!
+            const tokenAddress = TOKEN_ADDRESSES[intent.token!.toUpperCase()] || CONTRACTS.CHAINMATE_TOKEN
             txHash = await sendToken(intent.recipient!, intent.amount!, tokenAddress)
           }
           summary = `Sent ${intent.amount} ${intent.token || 'BNB'} to ${intent.recipient}`
