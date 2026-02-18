@@ -10,7 +10,7 @@ export const CONTRACTS = {
 
 export const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '97')
 
-export const BSC_TESTNET_RPC = 'https://data-seed-prebsc-1-s1.binance.org:8545'
+export const BSC_TESTNET_RPC = 'https://bsc-testnet-rpc.publicnode.com'
 export const BSCSCAN_API_BASE = 'https://api-testnet.bscscan.com/api'
 export const BSCSCAN_API_KEY = process.env.NEXT_PUBLIC_BSCSCAN_API_KEY || ''
 
